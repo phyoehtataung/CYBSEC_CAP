@@ -7,7 +7,7 @@
     { "name": "Angular", "confidence": "high" },
     { "name": "SQLite", "confidence": "medium" }
   ],
-  "coverage_notes": "A04 Insecure Design is largely architectural and is treated as out of scope for this prototype. A10 SSRF is not claimed for this catalog.",
+  "coverage_notes": "A04 Insecure Design is largely architectural and is treated as out of scope. A10 SSRF is not claimed for this catalog.",
   "out_of_scope": ["A04:2021 Insecure Design"],
   "findings": [
     {

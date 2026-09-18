@@ -47,7 +47,7 @@
     "completed_at": { "type": ["string", "null"], "format": "date-time" },
     "status": {
       "type": "string",
-      "enum": ["queued", "running", "completed", "failed", "blocked"]
+      "enum": ["queued", "running", "completed", "failed", "blocked", "cancelled"]
     },
     "tech_stack": {
       "type": "array",

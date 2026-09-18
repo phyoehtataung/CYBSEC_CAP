@@ -1,18 +1,61 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Status } from "../components/Layout";
 
 export default function CaseDetail() {
   const { caseId } = useParams();
+  const navigate = useNavigate();
   const [item, setItem] = useState(null);
+  const [users, setUsers] = useState([]);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ title: "", application: "", notes: "", owner_id: "" });
 
   useEffect(() => {
-    api.case(caseId).then(setItem).catch((err) => setError(err.message));
+    Promise.all([api.case(caseId), api.users()])
+      .then(([caseData, userData]) => {
+        setItem(caseData);
+        setUsers(userData.users || []);
+        setForm({
+          title: caseData.title,
+          application: caseData.application,
+          notes: caseData.notes || "",
+          owner_id: caseData.owner.id,
+        });
+      })
+      .catch((err) => setError(err.message));
   }, [caseId]);
 
-  if (error) return <p className="error">{error}</p>;
+  async function save(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api.updateCase(caseId, form);
+      setItem(updated);
+      setEditing(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm(`Delete case ${caseId} and all of its scans?`)) return;
+    setBusy(true);
+    try {
+      await api.deleteCase(caseId);
+      navigate("/cases");
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  if (error && !item) return <p className="error">{error}</p>;
   if (!item) return <p className="lede">Loading case…</p>;
 
   const max = Math.max(1, ...item.scans.map((s) => s.summary?.total || 0));
@@ -26,13 +69,69 @@ export default function CaseDetail() {
             {item.case_id} · Owner {item.owner.name} ({item.owner.email}) · {item.application}
           </p>
         </div>
-        <Link className="btn" to="/scan">
-          New scan
-        </Link>
+        <div className="actions">
+          <button className="btn secondary" type="button" onClick={() => setEditing((value) => !value)}>
+            {editing ? "Close editor" : "Edit case"}
+          </button>
+          <button className="btn danger" type="button" disabled={busy} onClick={remove}>
+            Delete case
+          </button>
+          <Link className="btn" to="/scan">
+            New scan
+          </Link>
+        </div>
       </div>
+      {error && <div className="error">{error}</div>}
       <p className="lede" style={{ marginBottom: 18 }}>
         {item.notes}
       </p>
+
+      {editing && (
+        <form className="form panel" style={{ marginBottom: 14, maxWidth: "none" }} onSubmit={save}>
+          <label>
+            Title
+            <input
+              value={form.title}
+              onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+              required
+              minLength={3}
+            />
+          </label>
+          <label>
+            Application
+            <input
+              value={form.application}
+              onChange={(event) => setForm((current) => ({ ...current, application: event.target.value }))}
+              required
+              minLength={2}
+            />
+          </label>
+          <label>
+            Owner
+            <select
+              value={form.owner_id}
+              onChange={(event) => setForm((current) => ({ ...current, owner_id: event.target.value }))}
+            >
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.role})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Notes
+            <textarea
+              rows={4}
+              value={form.notes}
+              onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
+            />
+          </label>
+          <button className="btn" disabled={busy}>
+            {busy ? "Saving…" : "Save changes"}
+          </button>
+        </form>
+      )}
 
       <section className="panel" style={{ marginBottom: 14 }}>
         <h3>Trend across scans in this case</h3>

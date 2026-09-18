@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Severity, Status } from "../components/Layout";
 
@@ -7,10 +7,12 @@ const SEV = ["critical", "high", "medium", "low", "info"];
 
 export default function ScanDetail() {
   const { scanId } = useParams();
+  const navigate = useNavigate();
   const [scan, setScan] = useState(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let timer;
@@ -21,6 +23,11 @@ export default function ScanDetail() {
         const data = await api.scan(scanId);
         if (cancelled) return;
         setScan(data);
+        setSelected((current) => {
+          if (!current) return current;
+          const next = (data.findings || []).find((item) => item.finding_id === current.finding_id);
+          return next || current;
+        });
         if (data.status === "queued" || data.status === "running") {
           timer = setTimeout(load, 700);
         }
@@ -42,7 +49,54 @@ export default function ScanDetail() {
     [findings, filter]
   );
 
-  if (error) return <p className="error">{error}</p>;
+  async function cancel() {
+    setBusy(true);
+    setError("");
+    try {
+      await api.cancelScan(scan.scan_id);
+      const data = await api.scan(scan.scan_id);
+      setScan(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm("Delete this scan and its findings?")) return;
+    setBusy(true);
+    try {
+      await api.deleteScan(scan.scan_id);
+      navigate("/history");
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  async function triage(status) {
+    if (!selected) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api.updateFinding(scan.scan_id, selected.finding_id, { status });
+      setScan((current) => {
+        if (!current) return current;
+        const nextFindings = (current.findings || []).map((item) =>
+          item.finding_id === updated.finding_id ? { ...item, status: updated.status } : item
+        );
+        return { ...current, findings: nextFindings };
+      });
+      setSelected((current) => (current ? { ...current, status: updated.status } : current));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (error && !scan) return <p className="error">{error}</p>;
   if (!scan) return <p className="lede">Loading scan…</p>;
 
   const running = scan.status === "queued" || scan.status === "running";
@@ -59,6 +113,15 @@ export default function ScanDetail() {
           </p>
         </div>
         <div className="actions">
+          {running ? (
+            <button className="btn secondary" type="button" disabled={busy} onClick={cancel}>
+              Cancel scan
+            </button>
+          ) : (
+            <button className="btn danger" type="button" disabled={busy} onClick={remove}>
+              Delete scan
+            </button>
+          )}
           <a className="btn" href={api.reportHtmlUrl(scan.scan_id)}>
             Export HTML
           </a>
@@ -67,6 +130,8 @@ export default function ScanDetail() {
           </a>
         </div>
       </div>
+
+      {error && <div className="error">{error}</div>}
 
       <div className="chips" style={{ marginBottom: 16 }}>
         <Status value={scan.status} />
@@ -92,11 +157,10 @@ export default function ScanDetail() {
         </section>
       )}
 
-      {scan.live_check && !scan.live_check.reachable && (
+      {scan.live_check && !scan.live_check.reachable && scan.status !== "queued" && scan.status !== "running" && (
         <div className="warn">
-          Live target was not reachable. Catalog findings for this lab profile were still recorded so
-          the demo stays usable without Docker. Start Juice Shop / DVWA with docker compose to include
-          live header evidence.
+          Live target was not reachable. Static analysis and catalog findings may still be present.
+          Start Juice Shop / DVWA with docker compose to include crawl evidence.
         </div>
       )}
 
@@ -145,6 +209,7 @@ export default function ScanDetail() {
               <th>ID</th>
               <th>Title</th>
               <th>Severity</th>
+              <th>Status</th>
               <th>OWASP</th>
               <th>Type</th>
             </tr>
@@ -156,6 +221,9 @@ export default function ScanDetail() {
                 <td>{finding.title}</td>
                 <td>
                   <Severity value={finding.severity} />
+                </td>
+                <td>
+                  <Status value={finding.status} />
                 </td>
                 <td>
                   {finding.owasp.id}
@@ -173,7 +241,10 @@ export default function ScanDetail() {
           <aside className="drawer" onClick={(event) => event.stopPropagation()}>
             <span className="mono">{selected.finding_id}</span>
             <h3>{selected.title}</h3>
-            <Severity value={selected.severity} />
+            <div className="chips">
+              <Severity value={selected.severity} />
+              <Status value={selected.status} />
+            </div>
             <div className="kv">
               <span>OWASP</span>
               <b>
@@ -199,9 +270,20 @@ export default function ScanDetail() {
             <p>
               <b>Recommendation.</b> {selected.recommendation}
             </p>
-            <button className="btn secondary" onClick={() => setSelected(null)}>
-              Close
-            </button>
+            <div className="actions" style={{ marginTop: 16 }}>
+              <button className="btn secondary" type="button" disabled={busy} onClick={() => triage("accepted")}>
+                Accept risk
+              </button>
+              <button className="btn secondary" type="button" disabled={busy} onClick={() => triage("false_positive")}>
+                False positive
+              </button>
+              <button className="btn secondary" type="button" disabled={busy} onClick={() => triage("open")}>
+                Reopen
+              </button>
+              <button className="btn secondary" type="button" onClick={() => setSelected(null)}>
+                Close
+              </button>
+            </div>
           </aside>
         </div>
       )}

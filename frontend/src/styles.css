@@ -224,8 +224,9 @@ tr.clickable:hover td { background: rgba(158, 242, 195, 0.04); }
 .badge.medium { color: var(--medium); }
 .badge.low { color: var(--low); }
 .badge.info, .badge.queued, .badge.running { color: var(--mint); }
-.badge.completed { color: var(--mint); }
-.badge.failed, .badge.blocked { color: var(--critical); }
+.badge.completed, .badge.open { color: var(--mint); }
+.badge.cancelled, .badge.accepted { color: var(--gold); }
+.badge.failed, .badge.blocked, .badge.false_positive { color: var(--critical); }
 
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn {
@@ -239,6 +240,11 @@ tr.clickable:hover td { background: rgba(158, 242, 195, 0.04); }
   background: transparent;
   color: var(--text);
   border: 1px solid var(--line);
+}
+.btn.danger {
+  background: transparent;
+  color: var(--critical);
+  border: 1px solid var(--critical);
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 

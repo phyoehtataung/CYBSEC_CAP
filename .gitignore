@@ -14,3 +14,5 @@ Thumbs.db
 dist/
 .idea/
 .vscode/
+labs/juice-shop/
+labs/dvwa/

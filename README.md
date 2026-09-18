@@ -1,6 +1,6 @@
 # WebSET — Website Security Evaluation Tool
 
-Demo prototype of a local-only website security evaluation tool: scan Juice Shop or DVWA, store results in a case database, review them on a dashboard, and export an evaluation report.
+Local-only website security evaluation tool: run **static** and **dynamic** analysis against authorised Juice Shop / DVWA labs, store results in a case database, triage findings, and export an evaluation report.
 
 ## Quick start
 
@@ -32,11 +32,17 @@ Optional lab targets (local Docker only):
 docker compose up -d
 ```
 
-Juice Shop is `http://localhost:3000`, DVWA is `http://localhost:4280`. Scans work without Docker: the engine still records the training-app catalog and notes that the live host was unreachable.
+Optional lab **source** trees (needed for static analysis):
 
-**Scope:** the scanner only accepts localhost / Docker lab hosts. It does not send exploit payloads. Catalog findings describe vulnerability *classes* for teaching apps, with header fingerprinting as the live check.
+```powershell
+python scripts/fetch-lab-sources.py
+```
 
-The JSON contract lives at `shared/scan-result.schema.json`.
+Juice Shop is `http://localhost:3000`, DVWA is `http://localhost:4280`. Scans work without Docker: static analysis still runs if sources are cloned, and the training-app catalog fills OWASP classes the live checks did not confirm.
+
+**Scope:** the scanner only accepts localhost / Docker lab hosts. It does not send exploit payloads. Dynamic checks are crawl, header/cookie/CORS/form review, sensitive-path GETs, and a benign reflection canary.
+
+The JSON contract lives at `shared/scan-result.schema.json`. Deferred work (auth, PDF reports, tests/CI, packaging, competitive benchmark) is in [`docs/IMPLEMENTATION-ROADMAP.md`](docs/IMPLEMENTATION-ROADMAP.md).
 
 ---
 

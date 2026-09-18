@@ -5,28 +5,18 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from ..config import APP_NAME, APP_VERSION, SCHEMA_VERSION
-from .headers import (
-    catalog_path,
-    generic_findings,
-    header_finding,
-    identify_target,
-    inspect_headers,
+from .allowlist import validate_local_target
+from .dynamic.engine import run_dynamic
+from .findings import (
+    DEFAULT_OUT_OF_SCOPE,
+    ScanCancelled,
+    coverage_from_findings,
+    dedupe_findings,
+    merge_tech_stack,
+    summarise,
 )
-
-OWASP_TOP_10 = [
-    ("A01:2021", "Broken Access Control"),
-    ("A02:2021", "Cryptographic Failures"),
-    ("A03:2021", "Injection"),
-    ("A04:2021", "Insecure Design"),
-    ("A05:2021", "Security Misconfiguration"),
-    ("A06:2021", "Vulnerable and Outdated Components"),
-    ("A07:2021", "Identification and Authentication Failures"),
-    ("A08:2021", "Software and Data Integrity Failures"),
-    ("A09:2021", "Security Logging and Monitoring Failures"),
-    ("A10:2021", "Server-Side Request Forgery"),
-]
-
-SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"]
+from .headers import catalog_path, identify_target
+from .static.engine import run_static
 
 
 def utcnow() -> datetime:
@@ -40,28 +30,11 @@ def load_catalog(target_id: str) -> dict | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def summarise(findings: list[dict]) -> dict:
-    counts = {level: 0 for level in SEVERITY_ORDER}
-    for finding in findings:
-        level = finding.get("severity", "info")
-        if level in counts:
-            counts[level] += 1
-    counts["total"] = len(findings)
-    return counts
-
-
-def coverage_from_findings(findings: list[dict], out_of_scope: list[str], notes: str) -> dict:
-    detected_ids = {f.get("owasp", {}).get("id") for f in findings}
-    owasp = []
-    for oid, name in OWASP_TOP_10:
-        if any(oid in item for item in out_of_scope):
-            status = "out_of_scope"
-        elif oid in detected_ids:
-            status = "detected"
-        else:
-            status = "not_detected"
-        owasp.append({"id": oid, "name": name, "status": status})
-    return {"owasp": owasp, "out_of_scope": out_of_scope, "notes": notes}
+def _emit(progress, pct: int, message: str, cancelled=None) -> None:
+    if cancelled and cancelled():
+        raise ScanCancelled()
+    if progress:
+        progress(max(0, min(100, pct)), message)
 
 
 def build_scan_result(
@@ -71,53 +44,16 @@ def build_scan_result(
     target_name: str,
     target_url: str,
     started_at: datetime,
-    catalog: dict | None,
-    inspection: dict,
-    target_id: str,
+    findings: list[dict],
+    tech_stack: list[dict],
+    modes: list[str],
+    out_of_scope: list[str],
+    notes: str,
+    live_check: dict,
+    status: str = "completed",
+    completed_at: datetime | None = None,
 ) -> dict:
-    findings: list[dict] = []
-    tech_stack: list[dict] = []
-    out_of_scope = ["A04:2021 Insecure Design"]
-    notes = (
-        "This prototype combines a live header check with a training-app catalog. "
-        "It does not send exploit payloads. A04 Insecure Design is out of scope."
-    )
-
-    if catalog:
-        findings = list(catalog.get("findings", []))
-        tech_stack = list(catalog.get("tech_stack", []))
-        out_of_scope = catalog.get("out_of_scope", out_of_scope)
-        notes = catalog.get("coverage_notes", notes)
-        live = header_finding(target_id, inspection)
-        if live:
-            # Replace catalog header finding evidence with live evidence when present.
-            replaced = False
-            for item in findings:
-                if item.get("detection_type") == "dynamic" and "header" in item.get("title", "").lower():
-                    item["evidence"] = live["evidence"]
-                    item["confidence"] = "high"
-                    replaced = True
-                    break
-            if not replaced:
-                findings.append(live)
-    else:
-        findings = generic_findings(inspection)
-        tech_stack = inspection.get("tech_hints") or []
-
-    if inspection.get("tech_hints"):
-        known = {item["name"] for item in tech_stack}
-        for hint in inspection["tech_hints"]:
-            if hint["name"] not in known:
-                tech_stack.append(hint)
-
-    completed = utcnow()
-    status = "completed"
-    if not inspection.get("reachable"):
-        notes += (
-            f" Live target was not reachable ({inspection.get('error')}). "
-            "Catalog findings were still recorded for the selected lab profile."
-        )
-
+    completed = completed_at or utcnow()
     return {
         "schema_version": SCHEMA_VERSION,
         "scan_id": scan_id,
@@ -131,7 +67,7 @@ def build_scan_result(
         "scanner": {
             "name": APP_NAME,
             "version": APP_VERSION,
-            "modes": ["static", "dynamic", "catalog"],
+            "modes": modes,
         },
         "started_at": started_at.isoformat(),
         "completed_at": completed.isoformat(),
@@ -140,10 +76,10 @@ def build_scan_result(
         "summary": summarise(findings),
         "coverage": coverage_from_findings(findings, out_of_scope, notes),
         "live_check": {
-            "reachable": bool(inspection.get("reachable")),
-            "status_code": inspection.get("status_code"),
-            "error": inspection.get("error"),
-            "missing_headers": inspection.get("missing_headers") or [],
+            "reachable": bool(live_check.get("reachable")),
+            "status_code": live_check.get("status_code"),
+            "error": live_check.get("error"),
+            "missing_headers": live_check.get("missing_headers") or [],
         },
         "findings": findings,
     }
@@ -156,20 +92,100 @@ def run_scan(
     target_name: str,
     target_url: str,
     target_id: str | None = None,
+    progress=None,
+    cancelled=None,
 ) -> dict:
     started = utcnow()
     scan_id = scan_id or str(uuid4())
-    resolved_id = identify_target(target_url, target_id)
-    catalog = load_catalog(resolved_id)
-    inspection = inspect_headers(target_url)
-    name = target_name or (catalog["target_name"] if catalog else "Local lab target")
+    findings: list[dict] = []
+    modes: list[str] = []
+    notes: list[str] = []
+    tech_stack: list[dict] = []
+    live_check = {
+        "reachable": False,
+        "status_code": None,
+        "error": None,
+        "missing_headers": [],
+    }
+    status = "completed"
+    catalog = None
+    resolved_id = "generic"
+    name = target_name or "Local lab target"
+
+    try:
+        _emit(progress, 5, "Checking local allow-list", cancelled)
+        url = validate_local_target(target_url)
+
+        _emit(progress, 10, "Identifying the local target", cancelled)
+        resolved_id = identify_target(url, target_id)
+        catalog = load_catalog(resolved_id)
+        name = target_name or (catalog["target_name"] if catalog else "Local lab target")
+        out_of_scope = list((catalog or {}).get("out_of_scope") or DEFAULT_OUT_OF_SCOPE)
+
+        _emit(progress, 15, "Running static analysis", cancelled)
+
+        def static_progress(pct, message):
+            _emit(progress, 15 + int(pct * 0.25), message, cancelled)
+
+        static = run_static(resolved_id, progress=static_progress, cancelled=cancelled)
+        if static["ran"]:
+            modes.append("static")
+            findings.extend(static["findings"])
+            tech_stack = merge_tech_stack(tech_stack, static.get("tech_stack") or [])
+        notes.append(static["notes"])
+
+        _emit(progress, 42, "Running dynamic analysis", cancelled)
+
+        def dynamic_progress(pct, message):
+            _emit(progress, 42 + int(pct * 0.45), message, cancelled)
+
+        dynamic = run_dynamic(url, resolved_id, progress=dynamic_progress, cancelled=cancelled)
+        live_check = dynamic.get("inspection") or live_check
+        if dynamic["ran"]:
+            modes.append("dynamic")
+            findings.extend(dynamic["findings"])
+            tech_stack = merge_tech_stack(tech_stack, dynamic.get("tech_stack") or [])
+        notes.append(dynamic["notes"])
+
+        _emit(progress, 90, "Normalising findings to the WebSET schema", cancelled)
+        catalog_findings = list((catalog or {}).get("findings") or [])
+        if catalog_findings:
+            findings, extra = dedupe_findings(findings, catalog_findings)
+            if extra:
+                modes.append("catalog")
+                notes.append(
+                    "Training-app catalog entries were added for OWASP classes not confirmed by live checks."
+                )
+            elif not findings:
+                findings = catalog_findings
+                modes.append("catalog")
+                notes.append("Catalog findings were recorded because live checks produced none.")
+        tech_stack = merge_tech_stack(tech_stack, (catalog or {}).get("tech_stack") or [])
+        notes.append(
+            "WebSET does not send exploit payloads. A04 Insecure Design is out of scope."
+        )
+        if catalog and catalog.get("coverage_notes") and "catalog" in modes:
+            notes.append(catalog["coverage_notes"])
+
+    except ScanCancelled:
+        status = "cancelled"
+        notes.append("Scan cancelled by the user before completion.")
+
+    note_text = " ".join(part.strip() for part in notes if part)
+    if not modes:
+        modes = ["dynamic"] if live_check.get("reachable") else []
+
     return build_scan_result(
         scan_id=scan_id,
         case_id=case_id,
         target_name=name,
         target_url=target_url,
         started_at=started,
-        catalog=catalog,
-        inspection=inspection,
-        target_id=resolved_id,
+        findings=findings,
+        tech_stack=tech_stack,
+        modes=modes,
+        out_of_scope=list((catalog or {}).get("out_of_scope") or DEFAULT_OUT_OF_SCOPE),
+        notes=note_text,
+        live_check=live_check,
+        status=status,
     )

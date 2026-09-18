@@ -29,7 +29,11 @@ class Case(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
 
     owner: Mapped[User] = relationship(back_populates="cases")
-    scans: Mapped[list["Scan"]] = relationship(back_populates="case", order_by="Scan.started_at")
+    scans: Mapped[list["Scan"]] = relationship(
+        back_populates="case",
+        order_by="Scan.started_at",
+        cascade="all, delete-orphan",
+    )
 
 
 class Scan(Base):

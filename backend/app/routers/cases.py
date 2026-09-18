@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Case, User
+from ..routers.scans import request_cancel
 from ..seed import DEMO_USER_ID
 from ..serializers import case_to_dict
 
@@ -17,6 +18,13 @@ class CaseIn(BaseModel):
     title: str = Field(min_length=3, max_length=120)
     application: str = Field(min_length=2, max_length=80)
     notes: str = ""
+    owner_id: str | None = None
+
+
+class CasePatch(BaseModel):
+    title: str | None = Field(default=None, max_length=120)
+    application: str | None = Field(default=None, max_length=80)
+    notes: str | None = None
     owner_id: str | None = None
 
 
@@ -51,3 +59,43 @@ def get_case(case_id: str, db: Session = Depends(get_db)):
     if not case:
         raise HTTPException(404, "Case not found")
     return case_to_dict(case)
+
+
+@router.patch("/{case_id}")
+def update_case(case_id: str, payload: CasePatch, db: Session = Depends(get_db)):
+    case = db.get(Case, case_id)
+    if not case:
+        raise HTTPException(404, "Case not found")
+    if payload.title is not None:
+        title = payload.title.strip()
+        if len(title) < 3:
+            raise HTTPException(400, "Title must be at least 3 characters")
+        case.title = title
+    if payload.application is not None:
+        application = payload.application.strip()
+        if len(application) < 2:
+            raise HTTPException(400, "Application must be at least 2 characters")
+        case.application = application
+    if payload.notes is not None:
+        case.notes = payload.notes
+    if payload.owner_id is not None:
+        owner = db.get(User, payload.owner_id)
+        if not owner:
+            raise HTTPException(400, "Unknown owner profile")
+        case.owner_id = owner.id
+    db.commit()
+    db.refresh(case)
+    return case_to_dict(case)
+
+
+@router.delete("/{case_id}")
+def delete_case(case_id: str, db: Session = Depends(get_db)):
+    case = db.get(Case, case_id)
+    if not case:
+        raise HTTPException(404, "Case not found")
+    for scan in case.scans:
+        if scan.status in {"queued", "running"}:
+            request_cancel(scan.id)
+    db.delete(case)
+    db.commit()
+    return {"ok": True, "case_id": case_id}

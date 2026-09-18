@@ -76,9 +76,12 @@ def case_to_dict(case: Case) -> dict:
     latest = scans[0] if scans else None
     totals = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0, "total": 0}
     for scan in scans:
-        summary = scan_to_summary(scan)["summary"]
-        for key in totals:
-            totals[key] += summary.get(key, 0)
+        for finding in scan.findings:
+            if finding.status == "false_positive":
+                continue
+            if finding.severity in totals:
+                totals[finding.severity] += 1
+            totals["total"] += 1
     return {
         "case_id": case.id,
         "title": case.title,
@@ -111,10 +114,15 @@ def dashboard_payload(db: Session) -> dict:
     severity = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
     owasp: dict[str, int] = {}
     stacks: dict[str, int] = {}
+    open_critical = 0
     for finding in findings:
+        if finding.status == "false_positive":
+            continue
         if finding.severity in severity:
             severity[finding.severity] += 1
         owasp[finding.owasp_id] = owasp.get(finding.owasp_id, 0) + 1
+        if finding.severity == "critical" and finding.status == "open":
+            open_critical += 1
     for scan in scans:
         try:
             result = json.loads(scan.result_json or "{}")
@@ -130,7 +138,7 @@ def dashboard_payload(db: Session) -> dict:
             "cases": len(cases),
             "scans": len(scans),
             "findings": len(findings),
-            "open_critical": severity["critical"],
+            "open_critical": open_critical,
         },
         "severity": severity,
         "owasp": [{"id": k, "count": v} for k, v in sorted(owasp.items())],

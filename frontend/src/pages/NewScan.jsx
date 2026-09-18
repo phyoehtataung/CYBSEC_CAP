@@ -67,8 +67,8 @@ export default function NewScan() {
         <div>
           <h2>New evaluation scan</h2>
           <p className="lede">
-            Choose a case, then point the engine at Juice Shop or DVWA. The scanner performs a header
-            review and merges the training-app catalog into the shared JSON contract.
+            Choose a case, then point the engine at Juice Shop or DVWA. The scanner runs static analysis
+            on cloned lab sources (when present) and a non-exploit crawl of the live local target.
           </p>
         </div>
       </div>

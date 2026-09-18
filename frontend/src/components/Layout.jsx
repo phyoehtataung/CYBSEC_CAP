@@ -36,5 +36,5 @@ export function Severity({ value }) {
 }
 
 export function Status({ value }) {
-  return <span className={`badge ${value}`}>{value}</span>;
+  return <span className={`badge ${value}`}>{String(value).replaceAll("_", " ")}</span>;
 }

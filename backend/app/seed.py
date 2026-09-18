@@ -13,7 +13,13 @@ DEMO_USER_ID = "usr-analyst-01"
 def persist_result(db: Session, scan: Scan, result: dict) -> None:
     scan.status = result["status"]
     scan.progress = 100
-    scan.message = "Scan completed"
+    if result["status"] == "cancelled":
+        scan.message = "Scan cancelled"
+    elif result["status"] == "failed":
+        scan.message = result.get("coverage", {}).get("notes") or "Scan failed"
+        scan.message = scan.message[:180]
+    else:
+        scan.message = "Scan completed"
     scan.completed_at = datetime.now(timezone.utc)
     scan.result_json = json.dumps(result)
     scan.findings.clear()
@@ -55,8 +61,6 @@ def _historical_scan(
     findings = list(catalog["findings"])
     if drop_ids:
         findings = [f for f in findings if f["finding_id"] not in drop_ids]
-    catalog_copy = dict(catalog)
-    catalog_copy["findings"] = findings
     scan = Scan(
         id=f"scn-{target_id}-{days_ago}d",
         case_id=case.id,
@@ -76,16 +80,21 @@ def _historical_scan(
         target_name=catalog["target_name"],
         target_url=target_url,
         started_at=started,
-        catalog=catalog_copy,
-        inspection={
+        findings=findings,
+        tech_stack=list(catalog.get("tech_stack") or []),
+        modes=["catalog"],
+        out_of_scope=list(catalog.get("out_of_scope") or ["A04:2021 Insecure Design"]),
+        notes=(
+            catalog.get("coverage_notes", "")
+            + " Seeded history (no live probe)."
+        ).strip(),
+        live_check={
             "reachable": False,
             "error": "seeded history (no live probe)",
             "missing_headers": [],
-            "present_headers": {},
-            "tech_hints": [],
             "status_code": None,
         },
-        target_id=target_id,
+        completed_at=started + timedelta(minutes=2),
     )
     result["started_at"] = started.isoformat()
     result["completed_at"] = (started + timedelta(minutes=2)).isoformat()
