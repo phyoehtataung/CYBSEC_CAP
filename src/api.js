@@ -15,7 +15,7 @@ async function request(path, options = {}) {
       const body = JSON.parse(raw);
       detail = body.detail || JSON.stringify(body);
     } catch {
-      // not JSON - keep the plain text
+    
     }
     // The Vite dev proxy answers 500 with an empty body when the backend is down.
     if (response.status >= 500 && !raw) {
