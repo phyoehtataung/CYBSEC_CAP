@@ -7,7 +7,7 @@ async function request(path, options = {}) {
   });
   if (!response.ok) {
     // Read the body ONCE as text, then try to parse it as JSON.
-    // (Calling response.json() and then response.text() throws
+    // (Calling response.json() and then response.text() 
     // "body stream already read" because a body can only be consumed once.)
     const raw = await response.text();
     let detail = raw || response.statusText;
