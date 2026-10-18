@@ -1,4 +1,4 @@
-# WebSET — Website Security Evaluation Tool
+# WebSET — Website Security Evaluation Tool [VECTOR ZERO]
 ## 1. Overview & Purpose
 
 WebSET is a web application security scanning tool. Users upload or point the tool at a web application, and it runs static and dynamic analysis to identify vulnerabilities, bugs, and weaknesses. Findings are mapped against established security frameworks — **OWASP Top 10**, **NIST**, and **SANS** — and presented in a dashboard GUI, with results also available as an exportable evaluation report.
