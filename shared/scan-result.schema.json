@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webset.local/schemas/scan-result.schema.json",
+  "title": "WebSET Scan Result",
+  "description": "Canonical contract between the scanner, dashboard, database, and exported reports.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "scan_id",
+    "case_id",
+    "target",
+    "scanner",
+    "started_at",
+    "status",
+    "tech_stack",
+    "summary",
+    "coverage",
+    "findings"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0.0" },
+    "scan_id": { "type": "string" },
+    "case_id": { "type": "string" },
+    "target": {
+      "type": "object",
+      "required": ["name", "url", "authorized", "environment"],
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "authorized": { "type": "boolean" },
+        "environment": { "type": "string", "enum": ["local"] }
+      }
+    },
+    "scanner": {
+      "type": "object",
+      "required": ["name", "version", "modes"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "modes": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["static", "dynamic", "catalog"] }
+        }
+      }
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "completed_at": { "type": ["string", "null"], "format": "date-time" },
+    "status": {
+      "type": "string",
+      "enum": ["queued", "running", "completed", "failed", "blocked", "cancelled"]
+    },
+    "tech_stack": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "confidence"],
+        "properties": {
+          "name": { "type": "string" },
+          "version": { "type": ["string", "null"] },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "critical", "high", "medium", "low", "info"],
+      "properties": {
+        "total": { "type": "integer" },
+        "critical": { "type": "integer" },
+        "high": { "type": "integer" },
+        "medium": { "type": "integer" },
+        "low": { "type": "integer" },
+        "info": { "type": "integer" }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["owasp", "out_of_scope", "notes"],
+      "properties": {
+        "owasp": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "status"],
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "status": {
+                "type": "string",
+                "enum": ["detected", "not_detected", "out_of_scope"]
+              }
+            }
+          }
+        },
+        "out_of_scope": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": [
+        "finding_id",
+        "title",
+        "severity",
+        "confidence",
+        "status",
+        "detection_type",
+        "owasp",
+        "description",
+        "recommendation"
+      ],
+      "properties": {
+        "finding_id": { "type": "string" },
+        "title": { "type": "string" },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "status": { "type": "string", "enum": ["open", "accepted", "false_positive"] },
+        "detection_type": { "type": "string", "enum": ["static", "dynamic", "catalog"] },
+        "location": { "type": ["string", "null"] },
+        "cwe": { "type": ["string", "null"] },
+        "owasp": {
+          "type": "object",
+          "required": ["id", "name"],
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" }
+          }
+        },
+        "nist": { "type": ["string", "null"] },
+        "sans": { "type": ["string", "null"] },
+        "description": { "type": "string" },
+        "evidence": { "type": ["string", "null"] },
+        "recommendation": { "type": "string" }
+      }
+    }
+  }
+}

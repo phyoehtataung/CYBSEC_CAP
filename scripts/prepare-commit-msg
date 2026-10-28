@@ -1,0 +1,8 @@
+#!/bin/sh
+# Strip Cursor/agent attribution trailers from commit messages.
+MSG_FILE="$1"
+[ -f "$MSG_FILE" ] || exit 0
+tmp="${MSG_FILE}.tmp"
+# Portable filter: drop Co-authored-by / Made-with lines that mention Cursor.
+awk '!/^[Cc][Oo]-[Aa][Uu][Tt][Hh][Oo][Rr][Ee][Dd]-[Bb][Yy]:.*[Cc]ursor/ && !/^[Mm]ade-[Ww]ith:.*[Cc]ursor/ && !/cursoragent@cursor\.com/' "$MSG_FILE" > "$tmp" && mv "$tmp" "$MSG_FILE"
+exit 0

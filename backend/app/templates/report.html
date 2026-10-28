@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WebSET Evaluation Report — {{ scan.scan_id }}</title>
+  <style>
+    :root {
+      --ink: #102033;
+      --muted: #5b6b80;
+      --line: #d7deea;
+      --paper: #f7f4ee;
+      --card: #ffffff;
+      --accent: #0f766e;
+      --critical: #b42318;
+      --high: #c2410c;
+      --medium: #a16207;
+      --low: #1d4ed8;
+      --info: #475569;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 48px 28px 80px; }
+    header.hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 20px;
+      margin-bottom: 28px;
+    }
+    .brand { font-family: ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.18em; font-size: 12px; text-transform: uppercase; color: var(--accent); }
+    h1 { margin: 8px 0 4px; font-size: 32px; }
+    .meta { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; color: var(--muted); }
+    .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pill {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 1px solid var(--ink);
+      padding: 6px 10px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 24px 0; }
+    .stat { background: var(--card); border: 1px solid var(--line); padding: 14px; }
+    .stat b { display: block; font-size: 26px; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .stat span { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    h2 { font-size: 20px; margin: 32px 0 12px; }
+    table { width: 100%; border-collapse: collapse; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .sev { font-weight: 700; text-transform: uppercase; font-size: 11px; }
+    .critical { color: var(--critical); }
+    .high { color: var(--high); }
+    .medium { color: var(--medium); }
+    .low { color: var(--low); }
+    .info { color: var(--info); }
+    .finding {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 16px 18px;
+      margin: 12px 0;
+      page-break-inside: avoid;
+    }
+    .finding h3 { margin: 0 0 8px; font-size: 18px; }
+    .muted { color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px; }
+    .note { border-left: 3px solid var(--accent); padding: 8px 12px; margin: 16px 0; font-size: 14px; }
+    footer { margin-top: 40px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px; color: var(--muted); }
+    @media print { body { background: white; } .wrap { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div>
+        <div class="brand">WebSET · Website Security Evaluation Tool</div>
+        <h1>Evaluation report</h1>
+        <div class="meta">
+          Case {{ scan.case_id }} · Scan {{ scan.scan_id }}<br />
+          Target {{ scan.target.name }} ({{ scan.target.url }})<br />
+          {{ scan.started_at }} → {{ scan.completed_at or "in progress" }}
+        </div>
+      </div>
+      <div class="pills">
+        <div class="pill">Local / authorised only</div>
+        <div class="pill">Schema {{ scan.schema_version }}</div>
+        <div class="pill">{{ scan.status }}</div>
+      </div>
+    </header>
+
+    <p class="note">{{ scan.coverage.notes }}</p>
+
+    <div class="grid">
+      <div class="stat"><b>{{ scan.summary.total }}</b><span>Findings</span></div>
+      <div class="stat"><b class="critical">{{ scan.summary.critical }}</b><span>Critical</span></div>
+      <div class="stat"><b class="high">{{ scan.summary.high }}</b><span>High</span></div>
+      <div class="stat"><b class="medium">{{ scan.summary.medium }}</b><span>Medium</span></div>
+      <div class="stat"><b class="low">{{ scan.summary.low }}</b><span>Low</span></div>
+    </div>
+
+    <h2>Technology stack</h2>
+    <p>
+      {% for item in scan.tech_stack %}
+        {{ item.name }}{% if item.version %} {{ item.version }}{% endif %} ({{ item.confidence }}){% if not loop.last %} · {% endif %}
+      {% else %}
+        Not identified
+      {% endfor %}
+    </p>
+
+    <h2>OWASP Top 10 coverage</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Category</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for row in scan.coverage.owasp %}
+        <tr>
+          <td>{{ row.id }}</td>
+          <td>{{ row.name }}</td>
+          <td>{{ row.status.replace('_', ' ') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2>Findings</h2>
+    {% for f in scan.findings %}
+    <article class="finding">
+      <div class="muted">{{ f.finding_id }} · <span class="sev {{ f.severity }}">{{ f.severity }}</span> · {{ f.owasp.id }} {{ f.owasp.name }} · {{ f.detection_type }}</div>
+      <h3>{{ f.title }}</h3>
+      <p>{{ f.description }}</p>
+      {% if f.location %}<p class="muted">Location: {{ f.location }}</p>{% endif %}
+      {% if f.evidence %}<p><strong>Evidence.</strong> {{ f.evidence }}</p>{% endif %}
+      <p><strong>Recommendation.</strong> {{ f.recommendation }}</p>
+      <p class="muted">
+        CWE {{ f.cwe or "—" }} · NIST {{ f.nist or "—" }} · SANS {{ f.sans or "—" }} · confidence {{ f.confidence }}
+      </p>
+    </article>
+    {% endfor %}
+
+    <footer>
+      Generated by WebSET for an authorised local laboratory target. This report is a teaching/demo artefact and is not a penetration-test deliverable.
+      Scanning systems you do not own or do not have permission to test is illegal.
+    </footer>
+  </div>
+</body>
+</html>
