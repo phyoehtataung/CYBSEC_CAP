@@ -27,7 +27,7 @@ def identify_target(url: str, explicit_id: str | None = None) -> str:
     lowered = url.lower()
     if ":3000" in lowered or "juice" in lowered:
         return "juice-shop"
-    if ":4280" in lowered or "dvwa" in lowered:
+    if ":4280" in lowered or ":8081" in lowered or "dvwa" in lowered:
         return "dvwa"
     return "generic"
 
@@ -137,7 +137,7 @@ def generic_findings(inspection: dict) -> list[dict]:
                     f"status={inspection.get('status_code')}"
                 ),
                 "recommendation": (
-                    "Point the demo at Juice Shop (:3000) or DVWA (:4280) for catalog findings, "
+                    "Point the demo at Juice Shop (:3000) or DVWA (:8081) for catalog findings, "
                     "or extend the scanner with additional authorised lab profiles."
                 ),
             }

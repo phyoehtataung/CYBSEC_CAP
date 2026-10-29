@@ -10,7 +10,7 @@ SCHEMA_VERSION = "1.0.0"
 ROOT_DIR = Path(__file__).resolve().parents[2]
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BACKEND_DIR / "data"
-DB_PATH = DATA_DIR / "webset.db"
+DB_PATH = Path(os.environ.get("WEBSET_DB_PATH", str(DATA_DIR / "webset.db")))
 CATALOG_DIR = Path(__file__).resolve().parent / "data" / "catalogs"
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
@@ -47,7 +47,7 @@ ALLOWED_HOSTS = {
     "dvwa",
     "host.docker.internal",
 }
-ALLOWED_PORTS = {80, 3000, 4280, 8080, 8443}
+ALLOWED_PORTS = {80, 3000, 4280, 8080, 8081, 8443}
 
 DEMO_TARGETS = [
     {
@@ -60,7 +60,7 @@ DEMO_TARGETS = [
     {
         "id": "dvwa",
         "name": "DVWA",
-        "url": "http://localhost:4280",
+        "url": "http://localhost:8081",
         "stack": ["PHP", "MySQL", "Apache"],
         "notes": "Damn Vulnerable Web Application. Start with docker compose.",
     },

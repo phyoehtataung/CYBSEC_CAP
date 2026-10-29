@@ -38,11 +38,11 @@ Optional lab **source** trees (needed for static analysis):
 python scripts/fetch-lab-sources.py
 ```
 
-Juice Shop is `http://localhost:3000`, DVWA is `http://localhost:4280`. Scans work without Docker: static analysis still runs if sources are cloned, and the training-app catalog fills OWASP classes the live checks did not confirm.
+Juice Shop is `http://localhost:3000`, DVWA is `http://localhost:8081`. Scans work without Docker: static analysis still runs if sources are cloned, and the training-app catalog fills OWASP classes the live checks did not confirm.
 
 **Scope:** the scanner only accepts localhost / Docker lab hosts. It does not send exploit payloads. Dynamic checks are crawl, header/cookie/CORS/form review, sensitive-path GETs, and a benign reflection canary.
 
-The JSON contract lives at `shared/scan-result.schema.json`. Deferred work (auth, PDF reports, tests/CI, packaging, competitive benchmark) is in [`docs/IMPLEMENTATION-ROADMAP.md`](docs/IMPLEMENTATION-ROADMAP.md).
+The JSON contract lives at `shared/scan-result.schema.json`. How to run the automated suite and the manual checks is in [`docs/testing-and-validation.md`](docs/testing-and-validation.md) (portfolio section 3.3). Deferred work (auth, PDF reports, CI, packaging, competitive benchmark) is in [`docs/IMPLEMENTATION-ROADMAP.md`](docs/IMPLEMENTATION-ROADMAP.md).
 
 ---
 

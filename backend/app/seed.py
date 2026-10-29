@@ -157,7 +157,7 @@ def seed_if_empty(db: Session) -> None:
         db,
         case=dvwa_case,
         target_id="dvwa",
-        target_url="http://localhost:4280",
+        target_url="http://localhost:8081",
         days_ago=7,
     )
     db.commit()

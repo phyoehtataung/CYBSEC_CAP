@@ -91,7 +91,7 @@ WebSET is a local lab tool; “production” means “easy to run on a student�
 ### Compose
 Extend [`docker-compose.yml`](../docker-compose.yml) with a `webset` service next to Juice Shop and DVWA:
 - `webset` depends_on juice-shop, dvwa
-- Scan URLs inside the compose network: `http://juice-shop:3000`, `http://dvwa:4280` (already on `ALLOWED_HOSTS`)
+- Scan URLs inside the compose network: `http://juice-shop:3000`, `http://dvwa:80` (already on `ALLOWED_HOSTS`)
 - Optional bind of `./labs` for static analysis
 
 ### Lab sources in the image
