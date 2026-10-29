@@ -15,6 +15,7 @@ export default function Layout() {
           <NavLink to="/" end>
             Dashboard
           </NavLink>
+          <NavLink to="/how-it-works">How it works</NavLink>
           <NavLink to="/scan">New scan</NavLink>
           <NavLink to="/cases">Cases</NavLink>
           <NavLink to="/history">Scan history</NavLink>
